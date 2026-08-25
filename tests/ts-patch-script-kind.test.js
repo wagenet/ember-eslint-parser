@@ -76,10 +76,26 @@ function sourceFile(program, name) {
   return program.getSourceFile(path.join(appDir, name));
 }
 
+// Getting a program back isn't enough. typescript-eslint 6 and 7 never bring a
+// `.gts` file into the project under their experimental service, and hand back an
+// inferred program holding the parsed file alone — no siblings, so no twins to
+// check. Probe for a twin rather than trust the option, and say so out loud:
+// these tests reporting "skipped" is a result, silently passing is not.
+const twinsInProgram = Boolean(
+  serviceOptions && sourceFile(parse(path.join(appDir, 'comp0.gts')).services.program, 'comp1.mts')
+);
+if (!twinsInProgram) {
+  console.warn(
+    serviceOptions
+      ? 'ℹ️  the installed @typescript-eslint/parser keeps .gts out of the project — twin tests skipped'
+      : 'ℹ️  the installed @typescript-eslint/parser has no project service — twin tests skipped'
+  );
+}
+
 afterAll(cleanup);
 
 describe('script kind of virtual .mts/.mjs twins', () => {
-  it.skipIf(!serviceOptions)(
+  it.skipIf(!twinsInProgram)(
     "follows the twin's own extension, not the .gts/.gjs Deferred kind",
     () => {
       const program = parse(path.join(appDir, 'comp0.gts')).services.program;
@@ -95,7 +111,7 @@ describe('script kind of virtual .mts/.mjs twins', () => {
     }
   );
 
-  it.skipIf(!serviceOptions)(
+  it.skipIf(!twinsInProgram)(
     'lets TypeScript reuse the twins across a rebuild instead of re-parsing them',
     () => {
       // Linting an edited buffer — what an editor does as you type — rebuilds the
